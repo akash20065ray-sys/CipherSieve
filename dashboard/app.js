@@ -69,54 +69,101 @@ function initModelSelector() {
   });
 }
 
-// Oscilloscope Canvas Animation
+// Physical Packet Pulse Train Buffer
+let packetPulses = [];
+const MAX_PULSES = 60;
+
+function pushPacketPulse(size, direction, isThreat) {
+  packetPulses.push({
+    size: size,
+    direction: direction, // 1 = Upload, -1 = Download
+    isThreat: isThreat,
+    alpha: 1.0,
+    x: canvas.width - 20
+  });
+  if (packetPulses.length > MAX_PULSES) {
+    packetPulses.shift();
+  }
+}
+
+// Generate realistic background pulse dynamics when idle
+setInterval(() => {
+  if (!isThreatActive) {
+    // Normal background traffic: occasional download or tiny upload ACK
+    if (Math.random() < 0.35) {
+      const isDown = Math.random() > 0.3;
+      const sz = isDown ? (Math.random() > 0.5 ? 1420 : 512) : 64;
+      pushPacketPulse(sz, isDown ? -1 : 1, false);
+    }
+  }
+}, 120);
+
+// Oscilloscope Canvas: Physically Authentic Discrete Packet Impulse Graph
 function startOscilloscope() {
   function draw() {
-    ctx.fillStyle = "#0b1120";
+    ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Grid Lines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+    // Draw Instrument Grid
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < canvas.width; x += 40) {
+    for (let x = 0; x < canvas.width; x += 35) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += 30) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
 
-    // Draw Packet Waveform
-    ctx.beginPath();
-    ctx.strokeStyle = waveColor;
-    ctx.lineWidth = 2.5;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = waveColor;
-
+    // Zero-Line Axis (Center Baseline)
     const midY = canvas.height / 2;
-    for (let x = 0; x < canvas.width; x++) {
-      let y;
-      if (isThreatActive) {
-        // High-frequency burst jitter
-        const spike = (Math.sin(x * 0.15 + waveOffset) + Math.sin(x * 0.35 - waveOffset * 2)) * 0.5;
-        y = midY + spike * (waveAmplitude * 1.5) + (Math.random() - 0.5) * 8;
-      } else {
-        // Smooth human browsing rhythm
-        y = midY + Math.sin(x * waveFrequency + waveOffset) * waveAmplitude;
-      }
-
-      if (x === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(canvas.width, midY);
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.setLineDash([]);
 
-    waveOffset += isThreatActive ? 0.25 : 0.04;
+    // Axis Labels
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.font = "9px 'JetBrains Mono', monospace";
+    ctx.fillText("▲ UPSTREAM (TX)", 10, 14);
+    ctx.fillText("▼ DOWNSTREAM (RX)", 10, canvas.height - 6);
+
+    // Render Discrete Packet Pulses (Impulses)
+    for (let i = 0; i < packetPulses.length; i++) {
+      const p = packetPulses[i];
+      p.x -= isThreatActive ? 3.5 : 1.8; // Scroll leftwards across time axis
+
+      const maxH = (midY - 15);
+      const h = (p.size / 1500) * maxH;
+      const yEnd = p.direction === 1 ? (midY - h) : (midY + h);
+
+      // Color coding: Green for benign, Red for threat
+      const color = p.isThreat ? "#ef4444" : "#10b981";
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = p.size > 1000 ? 3 : 2;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = color;
+
+      ctx.beginPath();
+      ctx.moveTo(p.x, midY);
+      ctx.lineTo(p.x, yEnd);
+      ctx.stroke();
+
+      // Top/Bottom impulse cap marker
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.x, yEnd, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+    }
+
+    // Remove off-screen pulses
+    packetPulses = packetPulses.filter(p => p.x > -10);
+
     requestAnimationFrame(draw);
   }
   draw();
@@ -181,6 +228,11 @@ async function runPreset(scenario) {
   try {
     const res = await fetch("/api/simulate", { method: "POST", body: formData });
     const data = await res.json();
+    if (data && data.packets) {
+      data.packets.forEach(p => {
+        pushPacketPulse(p.size, p.direction, data.is_threat);
+      });
+    }
     handleNewFlow(data, null);
   } catch (err) {
     console.error(err);
@@ -226,6 +278,10 @@ async function executeManualForge() {
       isThreatActive = false;
       waveColor = "#10b981";
     }
+
+    mockFlow.packets.forEach(p => {
+      pushPacketPulse(p.size, p.direction, mockFlow.is_threat);
+    });
 
     handleNewFlow(mockFlow, null);
     openInspector(mockFlow);
