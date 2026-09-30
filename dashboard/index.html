@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CipherSieve - Real-Time Encrypted Traffic Defense Console</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="soc-container">
+    
+    <!-- Top Header -->
+    <header class="soc-header">
+      <div class="brand">
+        <div class="pulse-indicator"></div>
+        <div class="brand-text">
+          <h1>CIPHERSIEVE <span class="badge">TLS 1.3 IDS</span></h1>
+          <p class="subtitle">Payload-Agnostic Early-Flow Encrypted Threat Telemetry</p>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Bar -->
+      <div class="metrics-strip">
+        <div class="metric-box">
+          <span class="label">ACTIVE FLOWS</span>
+          <span class="val" id="valFlows">12,482</span>
+        </div>
+        <div class="metric-box alert-box">
+          <span class="label">THREATS DETECTED</span>
+          <span class="val alert-val" id="valThreats">17</span>
+        </div>
+        <div class="metric-box">
+          <span class="label">MEDIAN LATENCY</span>
+          <span class="val" id="valLatency">0.68ms</span>
+        </div>
+        <div class="metric-box model-select-box">
+          <span class="label">ACTIVE MODEL</span>
+          <select id="modelSelector" class="model-dropdown">
+            <option value="Hybrid_CNN_BiLSTM" selected>Hybrid CNN+BiLSTM (Deep)</option>
+            <option value="1D_CNN">1D-CNN (Line-Rate)</option>
+            <option value="BiLSTM">BiLSTM (Sequential)</option>
+            <option value="Gradient_Boost">Gradient Boost (GBDT)</option>
+            <option value="Random_Forest">Random Forest (Trees)</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Pipeline Stage Status Bar -->
+    <section class="pipeline-bar">
+      <div class="stage-step active"><span class="step-num">1</span> Packet Capture <span class="chk">✓</span></div>
+      <div class="stage-arrow">→</div>
+      <div class="stage-step active"><span class="step-num">2</span> 5-Tuple Assembler <span class="chk">✓</span></div>
+      <div class="stage-arrow">→</div>
+      <div class="stage-step active"><span class="step-num">3</span> 13-Feature Engine <span class="chk">✓</span></div>
+      <div class="stage-arrow">→</div>
+      <div class="stage-step active"><span class="step-num">4</span> Neural Classifier <span class="chk">✓</span></div>
+      <div class="stage-arrow">→</div>
+      <div class="stage-step active"><span class="step-num">5</span> Evidence Engine <span class="chk">✓</span></div>
+      <div class="stage-arrow">→</div>
+      <div class="stage-step active"><span class="step-num">6</span> WebSocket SOC <span class="chk">✓</span></div>
+    </section>
+
+    <!-- Main Grid Content -->
+    <main class="soc-grid">
+      
+      <!-- Left Column: Oscilloscope & Simulator -->
+      <div class="left-pane">
+        
+        <!-- Live Packet Waveform Oscilloscope -->
+        <div class="card waveform-card">
+          <div class="card-header">
+            <h3>LIVE PACKET RHYTHM OSCILLOSCOPE</h3>
+            <span class="card-tag" id="oscilloscopeTag">MONITORING NORMAL STREAM</span>
+          </div>
+          <canvas id="oscilloscopeCanvas" width="700" height="150"></canvas>
+          <div class="waveform-legend">
+            <span><i class="dot dot-green"></i> Benign Browsing (Smooth Pulses)</span>
+            <span><i class="dot dot-red"></i> Threat Burst (High-Frequency Jitter)</span>
+          </div>
+        </div>
+
+        <!-- Dual-Mode Simulator Controls -->
+        <div class="card simulator-card">
+          <div class="tab-strip">
+            <button class="tab-btn active" id="tabAuto" onclick="switchSimTab('auto')">Automated Attack Presets</button>
+            <button class="tab-btn" id="tabManual" onclick="switchSimTab('manual')">Manual Packet Forge (Interviewer Playground)</button>
+          </div>
+
+          <!-- Mode A: Automated Presets -->
+          <div class="sim-panel" id="panelAuto">
+            <p class="sim-desc">Inject simulated realistic encrypted traffic streams directly into the active packet pipeline:</p>
+            <div class="preset-buttons">
+              <button class="btn btn-benign" onclick="runPreset('BENIGN_WEB')">
+                <span class="btn-icon">🌐</span>
+                <span class="btn-text">Normal HTTPS Web</span>
+              </button>
+              <button class="btn btn-benign" onclick="runPreset('BENIGN_STREAM')">
+                <span class="btn-icon">🎬</span>
+                <span class="btn-text">Encrypted Video Stream</span>
+              </button>
+              <button class="btn btn-danger" onclick="runPreset('DATA_EXFIL')">
+                <span class="btn-icon">🚨</span>
+                <span class="btn-text">Data Exfiltration Attack</span>
+              </button>
+              <button class="btn btn-danger" onclick="runPreset('SCAN_RECON')">
+                <span class="btn-icon">⚡</span>
+                <span class="btn-text">Stealth Port Scan</span>
+              </button>
+              <button class="btn btn-warning" onclick="runPreset('C2_BEACON')">
+                <span class="btn-icon">📡</span>
+                <span class="btn-text">C2 Botnet Beacon</span>
+              </button>
+            </div>
+            
+            <div class="evasion-row">
+              <label class="toggle-container">
+                <input type="checkbox" id="checkEvasion">
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Enable Adversarial Traffic Shaping (50B Padding + 20ms Jitter)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Mode B: Manual Slider Playground -->
+          <div class="sim-panel hidden" id="panelManual">
+            <p class="sim-desc">Tune packet transmission physics manually to test how the neural classifier reacts:</p>
+            <div class="slider-group">
+              <div class="slider-item">
+                <label>Packet Size: <span id="lblSize" class="slider-val">1420 B</span></label>
+                <input type="range" id="rngSize" min="40" max="1500" value="1420" oninput="updateSliderLabels()">
+              </div>
+              <div class="slider-item">
+                <label>Inter-Arrival Delay: <span id="lblDelay" class="slider-val">1.2 ms</span></label>
+                <input type="range" id="rngDelay" min="0.5" max="200" step="0.5" value="1.2" oninput="updateSliderLabels()">
+              </div>
+              <div class="slider-item">
+                <label>Upload/Download Bias: <span id="lblRatio" class="slider-val">90% Upload</span></label>
+                <input type="range" id="rngRatio" min="5" max="95" value="90" oninput="updateSliderLabels()">
+              </div>
+            </div>
+            <button class="btn btn-forge" onclick="executeManualForge()">⚡ Inject Custom Flow Stream</button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Right Column: Recent Threat Feed -->
+      <div class="right-pane">
+        <div class="card threats-card">
+          <div class="card-header">
+            <h3>REAL-TIME THREAT LOG</h3>
+            <span class="badge-threat" id="threatCountBadge">17 Active Alerts</span>
+          </div>
+
+          <div class="threat-table-container">
+            <table class="threat-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>CLASSIFICATION</th>
+                  <th>CONF</th>
+                  <th>LATENCY</th>
+                  <th>INSPECT</th>
+                </tr>
+              </thead>
+              <tbody id="threatTableBody">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- The Killer Flow Inspector Drawer / Modal -->
+    <div class="inspector-drawer" id="inspectorDrawer">
+      <div class="drawer-header">
+        <h2>FLOW FORENSIC INSPECTOR</h2>
+        <button class="close-btn" onclick="closeInspector()">✕</button>
+      </div>
+
+      <div class="drawer-content">
+        <!-- 3-Stage Visual Pipeline -->
+        <div class="inspector-flow-grid">
+          
+          <!-- Stage 1: Raw Observation -->
+          <div class="inspect-box">
+            <h4>STAGE 1: RAW PACKET OBSERVATION</h4>
+            <div class="packet-stream-list" id="inspectPackets">
+              <!-- Rendered list of packets -->
+            </div>
+          </div>
+
+          <!-- Stage 2: Feature Engine -->
+          <div class="inspect-box">
+            <h4>STAGE 2: 13-FEATURE ENGINE</h4>
+            <div class="feature-metrics" id="inspectFeatures">
+              <!-- Rendered extracted features -->
+            </div>
+          </div>
+
+          <!-- Stage 3: Neural Model & Physical Evidence -->
+          <div class="inspect-box highlight-box">
+            <h4>STAGE 3: NEURAL CLASSIFIER & ATTRIBUTION</h4>
+            <div class="classification-result" id="inspectResult">
+              <!-- Model prediction + confidence -->
+            </div>
+            <div class="evidence-block">
+              <h5>PHYSICAL NETWORK EVIDENCE (Z-SCORE):</h5>
+              <ul class="evidence-list" id="inspectEvidence">
+                <!-- Evidence bullets -->
+              </ul>
+            </div>
+            <div class="latency-breakdown" id="inspectLatency">
+              <!-- Latency breakdown -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
