@@ -271,7 +271,16 @@ async def websocket_stream(websocket: WebSocket):
         active_connections.remove(websocket)
 
 
-# Mount dashboard
+# Mount dashboard and explicit HTML endpoints
+@app.get("/")
+@app.get("/index.html")
+async def serve_dashboard():
+    index_file = os.path.join(DASHBOARD_DIR, "index.html")
+    if os.path.exists(index_file):
+        from fastapi.responses import FileResponse
+        return FileResponse(index_file)
+    return {"message": "CipherSieve Dashboard UI"}
+
 if os.path.exists(DASHBOARD_DIR):
     app.mount("/", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
 

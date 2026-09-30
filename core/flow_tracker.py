@@ -60,9 +60,9 @@ class FlowTracker:
     Manages active network flows, assigning packets to bidirectional 5-tuples.
     Allows extracting the first N packets of a connection for early threat detection.
     """
-    def __init__(self, idle_timeout: float = 30.0, max_packets_per_flow: int = 50):
+    def __init__(self, idle_timeout: float = 30.0, max_packets_per_flow: int = 50, observation_window: Optional[int] = None):
         self.idle_timeout = idle_timeout
-        self.max_packets_per_flow = max_packets_per_flow
+        self.max_packets_per_flow = observation_window if observation_window is not None else max_packets_per_flow
         self.active_flows: Dict[str, FlowState] = {}
 
     @staticmethod
