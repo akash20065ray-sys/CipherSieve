@@ -72,11 +72,11 @@ function initModelSelector() {
 // Oscilloscope Canvas Animation
 function startOscilloscope() {
   function draw() {
-    ctx.fillStyle = "#05070a";
+    ctx.fillStyle = "#0b1120";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw Grid Lines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 40) {
       ctx.beginPath();
