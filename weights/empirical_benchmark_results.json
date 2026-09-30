@@ -1,0 +1,89 @@
+{
+  "timestamp": 1790789663.73246,
+  "horizon_evaluation": {
+    "N_5": {
+      "window_size": 5,
+      "accuracy": 0.8,
+      "macro_f1": 0.7333333333333333
+    },
+    "N_10": {
+      "window_size": 10,
+      "accuracy": 0.998,
+      "macro_f1": 0.99799994999875
+    },
+    "N_20": {
+      "window_size": 20,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    "N_50": {
+      "window_size": 50,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    }
+  },
+  "evasion_evaluation": [
+    {
+      "scenario": "Clean Baseline",
+      "padding_bytes": 0,
+      "jitter_ms": 0.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    {
+      "scenario": "Light Padding (+50B)",
+      "padding_bytes": 50,
+      "jitter_ms": 0.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    {
+      "scenario": "Heavy Padding (+200B)",
+      "padding_bytes": 200,
+      "jitter_ms": 0.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    {
+      "scenario": "Low Jitter (10ms)",
+      "padding_bytes": 0,
+      "jitter_ms": 10.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    {
+      "scenario": "High Jitter (50ms)",
+      "padding_bytes": 0,
+      "jitter_ms": 50.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    {
+      "scenario": "Combined Evasion (+100B, 30ms)",
+      "padding_bytes": 100,
+      "jitter_ms": 30.0,
+      "accuracy": 1.0,
+      "macro_f1": 1.0
+    }
+  ],
+  "latency_profiling": {
+    "feature_extraction": {
+      "p50": 0.23344999954133527,
+      "p95": 0.36531499954435265,
+      "p99": 0.46574900085033727,
+      "mean": 0.22520349997284939
+    },
+    "neural_inference": {
+      "p50": 0.9135499994954444,
+      "p95": 1.584959999217972,
+      "p99": 1.950731000779342,
+      "mean": 0.9281193999995594
+    },
+    "total_detection_pipeline": {
+      "p50": 1.1619500010056072,
+      "p95": 1.8820250006683634,
+      "p99": 2.27767400081575,
+      "mean": 1.1533228999724088
+    }
+  }
+}

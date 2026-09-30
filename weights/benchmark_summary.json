@@ -1,0 +1,53 @@
+{
+  "timestamp": 1790789363.107523,
+  "observation_window": 20,
+  "classes": [
+    "BENIGN_WEB",
+    "BENIGN_STREAM",
+    "SCAN_RECON",
+    "DATA_EXFIL",
+    "C2_BEACON"
+  ],
+  "results": [
+    {
+      "Model": "Random Forest",
+      "Accuracy": 1.0,
+      "Precision": 1.0,
+      "Recall": 1.0,
+      "F1-Score": 1.0,
+      "Latency_ms": 15.857600000344974
+    },
+    {
+      "Model": "Gradient Boost",
+      "Accuracy": 1.0,
+      "Precision": 1.0,
+      "Recall": 1.0,
+      "F1-Score": 1.0,
+      "Latency_ms": 4.323699999986275
+    },
+    {
+      "Model": "1D-CNN",
+      "Accuracy": 1.0,
+      "Precision": 1.0,
+      "Recall": 1.0,
+      "F1-Score": 1.0,
+      "Latency_ms": 0.20869999934802763
+    },
+    {
+      "Model": "BiLSTM",
+      "Accuracy": 0.6,
+      "Precision": 0.40004884004884006,
+      "Recall": 0.6,
+      "F1-Score": 0.466695604991861,
+      "Latency_ms": 0.3979499997512903
+    },
+    {
+      "Model": "Hybrid CNN+BiLSTM",
+      "Accuracy": 1.0,
+      "Precision": 1.0,
+      "Recall": 1.0,
+      "F1-Score": 1.0,
+      "Latency_ms": 0.479500000437838
+    }
+  ]
+}
