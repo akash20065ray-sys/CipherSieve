@@ -1,0 +1,48 @@
+# CipherSieve - Roo Code Workspace Rules (.clinerules)
+
+You are working on **CipherSieve**, a high-performance, payload-agnostic encrypted traffic threat detection system for TLS 1.3 / HTTPS streams.
+
+---
+
+## 1. Project Mission & Core Invariants
+* **Zero Payload Inspection**: Never inspect, decrypt, or log application-layer bytes. All analysis must rely strictly on link/transport-layer metadata (packet sizes, inter-arrival times, directional ratios, TCP flags, and window buffers).
+* **Early-Flow Horizon**: Models classify flows based on early packet sequences ($N \in [5, 50]$ packets), optimizing for sub-millisecond line-rate inference.
+* **Empirical Rigor**: Support the 5 core research questions:
+  - RQ1: Detection feasibility without decryption.
+  - RQ2: Early-detection horizon sensitivity (N = 5, 10, 20, 50).
+  - RQ3: Classical trees (RF, GBDT) vs. Deep Neural Models (1D-CNN, BiLSTM, Hybrid).
+  - RQ4: Adversarial traffic-shaping evasion (random padding + timing jitter).
+  - RQ5: Granular latency profiling ($p50, p95, p99$ across capture, extraction, inference, alert).
+
+---
+
+## 2. Directory Architecture & Responsibilities
+* `core/flow_tracker.py`: Bidirectional 5-tuple canonical flow assembler and state table.
+* `core/feature_extractor.py`: Extracts the 13 statistical features and $N \times 4$ sequence matrices.
+* `core/explainer.py`: Z-score deviation model translating mathematical anomalies into physical network evidence.
+* `models/baselines.py`: Classical tree ensembles (Random Forest, Gradient Boosted Trees).
+* `models/neural_models.py`: PyTorch 1D-CNN, BiLSTM, and Hybrid CNN+BiLSTM ($\approx 68.5\text{k}$ parameters).
+* `models/trainer.py`: Master multi-model training and holdout validation suite.
+* `benchmark/synthetic_generator.py`: Ground-truth behavioral traffic generator with evasion perturbations.
+* `benchmark/runner.py`: Executes the empirical benchmark suite for all 5 RQs.
+* `benchmark/plot_results.py`: Generates publication-ready figures in `docs/figures/`.
+* `server/app.py`: FastAPI server with real-time WebSocket streaming (`/ws/stream`).
+* `dashboard/`: Dark-mode industrial SOC interface (HTML/Vanilla CSS/JS) featuring the 3-Stage Forensic Flow Inspector.
+* `run.py`: Master CLI entry point (`serve`, `train`, `benchmark`, `plot`).
+
+---
+
+## 3. Technology Stack & Coding Standards
+* **Python**: 3.10+, strictly type-hinted (`typing.Tuple`, `typing.List`, `typing.Dict`).
+* **Deep Learning**: PyTorch 2.0+ CPU-friendly models; preserve tensor dimensions: `(Batch, Seq_Len, Features)`.
+* **Classical ML**: Scikit-Learn with persisted `StandardScaler` and `joblib` serializers.
+* **Server**: FastAPI, asynchronous event loop, WebSockets with JSON schemas.
+* **Dashboard**: Vanilla CSS and Vanilla JavaScript (No React/Tailwind/Webpack build steps). Enterprise dark theme.
+
+---
+
+## 4. Key Execution Commands
+* Start live SOC dashboard: `python run.py serve` (runs on `http://127.0.0.1:8000/index.html`)
+* Run full model training: `python run.py train`
+* Run research benchmark suite: `python run.py benchmark`
+* Generate benchmark charts: `python run.py plot`

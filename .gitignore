@@ -37,3 +37,10 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# Roo Code & AI Agent Local Caches
+.roo/tasks/
+.roo/history/
+.roo/sessions/
+.roo/*.db
+.cline/
