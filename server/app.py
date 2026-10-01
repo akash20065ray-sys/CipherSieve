@@ -473,7 +473,7 @@ def _run_pcap_replay_worker(filepath: str, speed_multiplier: float):
         speed_multiplier=speed_multiplier,
         packet_callback=on_pcap_packet,
         flow_complete_callback=on_pcap_flow,
-        max_packets=500
+        max_packets=5000
     )
 
 
