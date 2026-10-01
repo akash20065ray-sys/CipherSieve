@@ -44,3 +44,6 @@ Thumbs.db
 .roo/sessions/
 .roo/*.db
 .cline/
+
+# Data Uploads
+data/uploads/

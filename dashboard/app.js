@@ -1,9 +1,13 @@
 /**
  * CipherSieve - Real-Time SOC Dashboard Logic
- * - Real-time WebSocket telemetry handler
- * - Live canvas packet rhythm oscilloscope
- * - Dual-mode simulation (Presets vs Manual Slider Forge)
- * - 3-Stage Forensic Flow Inspector (Packet -> Feature -> Model -> Evidence)
+ * - Real-time WebSocket telemetry handler (Live packets, new flows, sniffer telemetry)
+ * - Live canvas discrete impulse pulse-train oscilloscope
+ * - Tri-Mode Ingestion Deck:
+ *   1. Automated Attack Presets
+ *   2. Manual Packet Forge Playground
+ *   3. Real-World PCAP Dataset Replay & Upload
+ *   4. Live Network Card Sniffer (Wi-Fi, Ethernet, Loopback)
+ * - 3-Stage Forensic Flow Inspector (Packet -> 13 Features -> Model -> Evidence)
  */
 
 let ws = null;
@@ -18,11 +22,16 @@ let waveFrequency = 0.05;
 let waveAmplitude = 25;
 let waveColor = "#10b981"; // Green by default
 
+// Physical Packet Pulse Train Buffer
+let packetPulses = [];
+const MAX_PULSES = 60;
+
 // Initialize
 document.addEventListener("DOMContentLoaded", () => {
   initWebSocket();
   startOscilloscope();
   initModelSelector();
+  loadNetworkInterfaces();
   loadInitialMockThreats();
 });
 
@@ -35,9 +44,21 @@ function initWebSocket() {
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.type === "NEW_FLOW") {
+        if (msg.data && msg.data.packets) {
+          msg.data.packets.forEach(p => {
+            pushPacketPulse(p.size, p.direction, msg.data.is_threat);
+          });
+        }
         handleNewFlow(msg.data, msg.stats);
+      } else if (msg.type === "PACKET_PULSE") {
+        if (msg.data) {
+          pushPacketPulse(msg.data.size, msg.data.direction || 1, false);
+        }
       } else if (msg.type === "HEARTBEAT") {
         updateStats(msg.stats);
+        if (msg.sniffer) updateSnifferHUD(msg.sniffer);
+      } else if (msg.type === "SNIFFER_STATE") {
+        if (msg.data) updateSnifferHUD(msg.data);
       }
     };
     ws.onclose = () => {
@@ -50,13 +71,47 @@ function initWebSocket() {
 
 function updateStats(stats) {
   if (!stats) return;
-  document.getElementById("valFlows").textContent = Number(stats.total_flows).toLocaleString();
-  document.getElementById("valThreats").textContent = stats.threats_detected;
-  document.getElementById("valLatency").textContent = `${stats.last_latency_ms}ms`;
+  const elFlows = document.getElementById("valFlows");
+  const elThreats = document.getElementById("valThreats");
+  const elLat = document.getElementById("valLatency");
+  const elMode = document.getElementById("valIngestMode");
+
+  if (elFlows) elFlows.textContent = Number(stats.total_flows).toLocaleString();
+  if (elThreats) elThreats.textContent = stats.threats_detected;
+  if (elLat) elLat.textContent = `${stats.last_latency_ms}ms`;
+  if (elMode && stats.ingest_mode) elMode.textContent = stats.ingest_mode;
+}
+
+function updateSnifferHUD(sniffer) {
+  if (!sniffer) return;
+  const countEl = document.getElementById("livePktCount");
+  const flowEl = document.getElementById("liveFlowCount");
+  const rateEl = document.getElementById("liveRate");
+  const dotEl = document.getElementById("liveStatusDot");
+  const textEl = document.getElementById("liveStatusText");
+  const btnStart = document.getElementById("btnStartLive");
+  const btnStop = document.getElementById("btnStopLive");
+
+  if (countEl) countEl.textContent = Number(sniffer.packets_captured || 0).toLocaleString();
+  if (flowEl) flowEl.textContent = Number(sniffer.active_flows || 0).toLocaleString();
+  if (rateEl) rateEl.textContent = `${sniffer.pps || 0} pps (${sniffer.kbps || 0} Kbps)`;
+
+  if (sniffer.is_running) {
+    if (dotEl) dotEl.className = "dot dot-pulsing-green";
+    if (textEl) textEl.textContent = `Active [${sniffer.capture_mode}] on ${sniffer.active_interface}`;
+    if (btnStart) { btnStart.classList.add("disabled"); btnStart.disabled = true; }
+    if (btnStop) { btnStop.classList.remove("disabled"); btnStop.disabled = false; }
+  } else {
+    if (dotEl) dotEl.className = "dot dot-gray";
+    if (textEl) textEl.textContent = "Sniffer Idle";
+    if (btnStart) { btnStart.classList.remove("disabled"); btnStart.disabled = false; }
+    if (btnStop) { btnStop.classList.add("disabled"); btnStop.disabled = true; }
+  }
 }
 
 function initModelSelector() {
   const sel = document.getElementById("modelSelector");
+  if (!sel) return;
   sel.addEventListener("change", async (e) => {
     const formData = new FormData();
     formData.append("model_name", e.target.value);
@@ -68,10 +123,6 @@ function initModelSelector() {
     }
   });
 }
-
-// Physical Packet Pulse Train Buffer
-let packetPulses = [];
-const MAX_PULSES = 60;
 
 function pushPacketPulse(size, direction, isThreat) {
   packetPulses.push({
@@ -86,10 +137,9 @@ function pushPacketPulse(size, direction, isThreat) {
   }
 }
 
-// Generate realistic background pulse dynamics when idle
+// Generate background pulse dynamics when idle
 setInterval(() => {
   if (!isThreatActive) {
-    // Normal background traffic: occasional download or tiny upload ACK
     if (Math.random() < 0.35) {
       const isDown = Math.random() > 0.3;
       const sz = isDown ? (Math.random() > 0.5 ? 1420 : 512) : 64;
@@ -98,13 +148,13 @@ setInterval(() => {
   }
 }, 120);
 
-// Oscilloscope Canvas: Physically Authentic Discrete Packet Impulse Graph
+// Discrete Packet Impulse Graph
 function startOscilloscope() {
   function draw() {
     ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Instrument Grid
+    // Grid
     ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 35) {
@@ -114,7 +164,7 @@ function startOscilloscope() {
       ctx.stroke();
     }
 
-    // Zero-Line Axis (Center Baseline)
+    // Zero-Line Axis
     const midY = canvas.height / 2;
     ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
     ctx.setLineDash([4, 4]);
@@ -130,16 +180,14 @@ function startOscilloscope() {
     ctx.fillText("▲ UPSTREAM (TX)", 10, 14);
     ctx.fillText("▼ DOWNSTREAM (RX)", 10, canvas.height - 6);
 
-    // Render Discrete Packet Pulses (Impulses)
+    // Pulses
     for (let i = 0; i < packetPulses.length; i++) {
       const p = packetPulses[i];
-      p.x -= isThreatActive ? 3.5 : 1.8; // Scroll leftwards across time axis
+      p.x -= isThreatActive ? 3.5 : 1.8;
 
       const maxH = (midY - 15);
       const h = (p.size / 1500) * maxH;
       const yEnd = p.direction === 1 ? (midY - h) : (midY + h);
-
-      // Color coding: Green for benign, Red for threat
       const color = p.isThreat ? "#ef4444" : "#10b981";
 
       ctx.strokeStyle = color;
@@ -152,7 +200,6 @@ function startOscilloscope() {
       ctx.lineTo(p.x, yEnd);
       ctx.stroke();
 
-      // Top/Bottom impulse cap marker
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(p.x, yEnd, 2, 0, Math.PI * 2);
@@ -161,32 +208,41 @@ function startOscilloscope() {
       ctx.shadowBlur = 0;
     }
 
-    // Remove off-screen pulses
     packetPulses = packetPulses.filter(p => p.x > -10);
-
     requestAnimationFrame(draw);
   }
   draw();
 }
 
-// Dual Mode Tab Switcher
+// Ingestion Tab Switcher
 function switchSimTab(mode) {
-  const tabAuto = document.getElementById("tabAuto");
-  const tabManual = document.getElementById("tabManual");
-  const panelAuto = document.getElementById("panelAuto");
-  const panelManual = document.getElementById("panelManual");
+  const tabs = {
+    auto: { tab: document.getElementById("tabAuto"), panel: document.getElementById("panelAuto") },
+    manual: { tab: document.getElementById("tabManual"), panel: document.getElementById("panelManual") },
+    pcap: { tab: document.getElementById("tabPcap"), panel: document.getElementById("panelPcap") },
+    live: { tab: document.getElementById("tabLive"), panel: document.getElementById("panelLive") }
+  };
 
-  if (mode === "auto") {
-    tabAuto.classList.add("active");
-    tabManual.classList.remove("active");
-    panelAuto.classList.remove("hidden");
-    panelManual.classList.add("hidden");
-  } else {
-    tabAuto.classList.remove("active");
-    tabManual.classList.add("active");
-    panelAuto.classList.add("hidden");
-    panelManual.classList.remove("hidden");
-  }
+  Object.keys(tabs).forEach(k => {
+    if (tabs[k].tab && tabs[k].panel) {
+      if (k === mode) {
+        tabs[k].tab.classList.add("active");
+        tabs[k].panel.classList.remove("hidden");
+      } else {
+        tabs[k].tab.classList.remove("active");
+        tabs[k].panel.classList.add("hidden");
+      }
+    }
+  });
+
+  const modeMap = { auto: "SYNTHETIC", manual: "SYNTHETIC", pcap: "PCAP", live: "LIVE" };
+  const targetMode = modeMap[mode] || "SYNTHETIC";
+  const formData = new FormData();
+  formData.append("mode", targetMode);
+  fetch("/api/ingest/mode", { method: "POST", body: formData }).catch(console.error);
+
+  const elMode = document.getElementById("valIngestMode");
+  if (elMode) elMode.textContent = targetMode;
 }
 
 function updateSliderLabels() {
@@ -199,7 +255,7 @@ function updateSliderLabels() {
   document.getElementById("lblRatio").textContent = `${rt}% Upload`;
 }
 
-// Run 1-Click Preset
+// Mode A: Run 1-Click Preset
 async function runPreset(scenario) {
   const evasionChecked = document.getElementById("checkEvasion").checked;
   const padding = evasionChecked ? 50 : 0;
@@ -210,7 +266,6 @@ async function runPreset(scenario) {
   formData.append("padding", padding);
   formData.append("jitter", jitter);
 
-  // Update oscilloscope immediately
   if (scenario === "BENIGN_WEB" || scenario === "BENIGN_STREAM") {
     isThreatActive = false;
     waveColor = "#10b981";
@@ -239,7 +294,7 @@ async function runPreset(scenario) {
   }
 }
 
-// Execute Manual Slider Forge
+// Mode B: Execute Manual Slider Forge
 async function executeManualForge() {
   const sz = document.getElementById("rngSize").value;
   const dl = document.getElementById("rngDelay").value;
@@ -252,44 +307,139 @@ async function executeManualForge() {
 
   try {
     const res = await fetch("/api/manual_forge", { method: "POST", body: formData });
-    const result = await res.json();
+    const flowRecord = await res.json();
 
-    const mockFlow = {
-      id: `FORGE-${Math.floor(Math.random()*9000)+1000}`,
-      timestamp: new Date().toLocaleTimeString(),
-      class: result.classification,
-      confidence: result.confidence,
-      is_threat: result.is_threat,
-      latency_ms: result.latency.total_ms,
-      evidence: result.evidence,
-      features: result.features,
-      packets: [
-        { size: Number(sz), direction: 1, iat_ms: Number(dl) },
-        { size: Number(sz), direction: 1, iat_ms: Number(dl) },
-        { size: 64, direction: -1, iat_ms: Number(dl)*2 },
-        { size: Number(sz), direction: 1, iat_ms: Number(dl) }
-      ]
-    };
-
-    if (result.is_threat) {
+    if (flowRecord.is_threat) {
       isThreatActive = true;
       waveColor = "#ef4444";
+      document.getElementById("oscilloscopeTag").textContent = `HIGH-RISK PATTERN: ${flowRecord.class}`;
+      document.getElementById("oscilloscopeTag").style.color = "#ef4444";
     } else {
       isThreatActive = false;
       waveColor = "#10b981";
+      document.getElementById("oscilloscopeTag").textContent = "MONITORING BENIGN RHYTHM";
+      document.getElementById("oscilloscopeTag").style.color = "#10b981";
     }
 
-    mockFlow.packets.forEach(p => {
-      pushPacketPulse(p.size, p.direction, mockFlow.is_threat);
-    });
+    if (flowRecord.packets) {
+      flowRecord.packets.forEach(p => {
+        pushPacketPulse(p.size, p.direction, flowRecord.is_threat);
+      });
+    }
 
-    handleNewFlow(mockFlow, null);
-    openInspector(mockFlow);
+    handleNewFlow(flowRecord, null);
+    openInspector(flowRecord);
   } catch (err) {
     console.error(err);
   }
 }
 
+// Mode C: PCAP Replay & Upload
+async function triggerPcapReplay() {
+  const file = document.getElementById("pcapFileSelect").value;
+  const speed = document.getElementById("pcapSpeedSelect").value;
+
+  const formData = new FormData();
+  formData.append("filename", file);
+  formData.append("speed", speed);
+
+  document.getElementById("oscilloscopeTag").textContent = `REPLAYING PCAP: ${file}`;
+  document.getElementById("oscilloscopeTag").style.color = "#2563eb";
+  document.getElementById("oscilloscopeTag").style.borderColor = "rgba(37, 99, 235, 0.4)";
+
+  try {
+    await fetch("/api/ingest/pcap/replay", { method: "POST", body: formData });
+    showNotification(`Replaying ${file} at ${speed}x wire speed`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function uploadCustomPcap(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("auto_replay", "true");
+  formData.append("speed", "2.0");
+
+  showNotification(`Uploading & parsing ${file.name}...`);
+
+  try {
+    const res = await fetch("/api/ingest/pcap/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data.status === "UPLOAD_SUCCESS") {
+      showNotification(`Replaying uploaded PCAP: ${file.name}`);
+      const sel = document.getElementById("pcapFileSelect");
+      const opt = document.createElement("option");
+      opt.value = file.name;
+      opt.textContent = `${file.name} (Uploaded Capture)`;
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Mode D: Live Wire Sniffer
+async function loadNetworkInterfaces() {
+  try {
+    const res = await fetch("/api/interfaces");
+    const data = await res.json();
+    if (data && data.interfaces) {
+      const sel = document.getElementById("liveIfaceSelect");
+      if (!sel) return;
+      sel.innerHTML = "";
+      data.interfaces.forEach(iface => {
+        const opt = document.createElement("option");
+        opt.value = iface.name;
+        opt.textContent = `${iface.name} ${iface.ip ? `(${iface.ip})` : ''} ${iface.is_loopback ? '[Loopback]' : ''}`;
+        if (iface.name === "Wi-Fi" || iface.ip.startsWith("192.") || iface.ip.startsWith("10.")) {
+          opt.selected = true;
+        }
+        sel.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    console.warn("Could not load interfaces:", err);
+  }
+}
+
+async function startLiveSniffer() {
+  const iface = document.getElementById("liveIfaceSelect").value;
+  const formData = new FormData();
+  formData.append("interface", iface);
+
+  try {
+    const res = await fetch("/api/ingest/live/start", { method: "POST", body: formData });
+    const data = await res.json();
+    if (data && data.sniffer) {
+      updateSnifferHUD(data.sniffer);
+      showNotification(`Live sniffer started on ${iface}`);
+      document.getElementById("oscilloscopeTag").textContent = `LIVE WIRE INGESTION: ${iface}`;
+      document.getElementById("oscilloscopeTag").style.color = "#059669";
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function stopLiveSniffer() {
+  try {
+    const res = await fetch("/api/ingest/live/stop", { method: "POST" });
+    const data = await res.json();
+    if (data && data.sniffer) {
+      updateSnifferHUD(data.sniffer);
+      showNotification("Live sniffer stopped");
+      document.getElementById("oscilloscopeTag").textContent = "MONITORING NORMAL STREAM";
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Threat Feed Handling
 function handleNewFlow(flow, stats) {
   if (stats) updateStats(stats);
   currentFlows.unshift(flow);
@@ -300,6 +450,7 @@ function handleNewFlow(flow, stats) {
 
 function renderThreatTable() {
   const tbody = document.getElementById("threatTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   currentFlows.forEach((f, idx) => {
@@ -326,7 +477,7 @@ function openInspectorByIndex(idx) {
   if (flow) openInspector(flow);
 }
 
-// The Killer Flow Forensic Inspector
+// Flow Forensic Inspector
 function openInspector(flow) {
   const drawer = document.getElementById("inspectorDrawer");
   drawer.classList.add("open");
@@ -351,10 +502,10 @@ function openInspector(flow) {
     const featsToShow = [
       { label: "Mean Size", val: `${Math.round(flow.features.mean_packet_size)} B` },
       { label: "Mean IAT", val: `${(flow.features.mean_iat * 1000).toFixed(2)} ms` },
-      { label: "Upload Ratio", val: `${flow.features.fwd_bwd_byte_ratio.toFixed(1)}x` },
-      { label: "Packet Rate", val: `${Math.round(flow.features.packet_rate)} /s` },
-      { label: "Byte Rate", val: `${(flow.features.byte_rate / 1024).toFixed(1)} KB/s` },
-      { label: "TCP Window", val: `${Math.round(flow.features.mean_tcp_window)}` }
+      { label: "Upload Ratio", val: `${(flow.features.fwd_bwd_byte_ratio || 0).toFixed(1)}x` },
+      { label: "Packet Rate", val: `${Math.round(flow.features.packet_rate || 0)} /s` },
+      { label: "Byte Rate", val: `${((flow.features.byte_rate || 0) / 1024).toFixed(1)} KB/s` },
+      { label: "TCP Window", val: `${Math.round(flow.features.mean_tcp_window || 65535)}` }
     ];
 
     featsToShow.forEach(f => {
@@ -380,10 +531,10 @@ function openInspector(flow) {
     });
   }
 
-  // Latency Breakdown
+  // Granular Latency
   const latDiv = document.getElementById("inspectLatency");
   latDiv.innerHTML = `
-    <strong>Granular Latency:</strong> Ingestion: 0.12ms | Extraction: 0.15ms | Inference: ${(flow.latency_ms - 0.27).toFixed(2)}ms | Total: ${flow.latency_ms}ms
+    <strong>Granular Latency:</strong> Extraction: 0.15ms | Model Inference: ${(flow.latency_ms - 0.15).toFixed(2)}ms | Total: ${flow.latency_ms}ms
   `;
 }
 
@@ -396,7 +547,7 @@ function loadInitialMockThreats() {
     {
       id: "FLOW-98214",
       timestamp: "22:58:12",
-      class: "DATA_EXFILTRATION",
+      class: "DATA_EXFIL",
       confidence: 0.974,
       is_threat: true,
       latency_ms: 0.72,
